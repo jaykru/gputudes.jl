@@ -1,0 +1,2 @@
+# Sasha Rush's GPU puzzles in Metal in Julia
+This repo contains implementations of solutions to Sasha Rush's [GPU puzzles](https://github.com/srush/GPU-Puzzles) in Julia using [Metal.jl](https://github.com/JuliaGPU/Metal.jl) to target Apple's Metal compute shader API and in particular the GPUs of Apple Silicon Macs. It should be instructive as a guide for working with Metal.jl, whose documentation while very complete and clear is somewhat lacking in more than basic examples. Each exercise has been tested on a M2 Max with a 30 core GPU.
