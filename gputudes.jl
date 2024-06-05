@@ -242,19 +242,6 @@ out
 
 # Implement a kernel that computes a sum over a and stores it in out. If the
 # size of a exceeds the threadgroup size, only store the sum of each block.
-
-function ilog(n::Int64)
-    if n < 1
-        throw(DomainError(n, "Input must be a non-negative integer"))
-    end
-    k = -1
-    while n >= 1
-        n >>= 1 # Bitwise right shift, equivalent to `n ÷= 2`
-        k += 1
-    end
-    return k
-end
-
 function ppfx(out, a, size, expilszm1, exp_stride_schedule)
     group_idx = threadgroup_position_in_grid_1d()
     group_sz = threads_per_threadgroup_1d()
@@ -288,7 +275,7 @@ a = Float32.(Array(1:1024*100000)) |> MtlArray
 size = min(1024, length(a))
 groups = Int(ceil(length(a) / 1024))
 out = zeros(Float32, groups) |> MtlArray
-expilszm1 = (2^(ilog(size)-1))
+expilszm1 = Int((2^(log(2,size)-1)))
 exp_stride_schedule = (2 .^ Array(0:expilszm1)) |> MtlArray
 @metal threads = size groups = groups ppfx(out, a, size, expilszm1, exp_stride_schedule)
 out
