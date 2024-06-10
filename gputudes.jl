@@ -271,16 +271,72 @@ function ppfx(out, a, size, expilszm1, exp_stride_schedule)
 end
 
 
-a = Float32.(Array(1:1024*100000)) |> MtlArray
-size = min(1024, length(a))
+a = Float32.(Array(1:1024*1000)) |> MtlArray
+sz = min(1024, length(a))
 groups = Int(ceil(length(a) / 1024))
 out = zeros(Float32, groups) |> MtlArray
-expilszm1 = Int((2^(log(2,size)-1)))
+expilszm1 = Int((2^(log(2,sz)-1)))
 exp_stride_schedule = (2 .^ Array(0:expilszm1)) |> MtlArray
-@metal threads = size groups = groups ppfx(out, a, size, expilszm1, exp_stride_schedule)
+@metal threads = sz groups = groups ppfx(out, a, sz, expilszm1, exp_stride_schedule)
 out
 
 @assert sum(a) == sum(out)
 @benchmark Metal.@sync @metal threads = size groups = groups ppfx(out, a, size, expilszm1, exp_stride_schedule)
 a = Array(a)
 @benchmark sum(a)
+
+# Problem 13: Axis sum
+"A kernel that computes a sum over each column of `a` and stores it in `out`."
+function col_sum(out, a, size, expilszm1, exp_stride_schedule)
+    col = threadgroup_position_in_grid_1d()
+    row = thread_position_in_threadgroup_1d()
+    shared_col = MtlThreadGroupArray(Float32, 1024) # must be of fixed size, so hardcoded for now to 1024.
+    shared_col[row] = a[row,col]
+
+    for stride in 1:expilszm1
+        threadgroup_barrier(Metal.MemoryFlagThreadGroup) # fence writes to thread group memory    
+        # only some threads participate in the sum at each wavefront
+        if row <= size && (row % exp_stride_schedule[stride+1]) == 0
+            @inbounds s = shared_col[row]
+            @inbounds offset = exp_stride_schedule[stride]
+            if row-offset <= size && (row-1 >= 1)
+                @inbounds s += shared_col[row-offset]    
+            end 
+            @inbounds shared_col[row] = s
+        end
+    end
+
+    threadgroup_barrier(Metal.MemoryFlagThreadGroup) # fence writes to thread group memory    
+    
+    out[col] = shared_col[size]
+    return
+    
+end
+
+# TODO: Metal.jl linter:
+# - Make sure Float32 everywhere
+# - Make sure MtlThreadGroupArray(_, sz) has sz constant.
+
+a = rand(Float32, 1024,10000) |> MtlArray
+sz = size(a)[1]
+out = zeros(Float32,size(a)[2]) |> MtlArray
+expilszm1 = Int(floor(2.0^(log(2,sz)-1)))
+exp_stride_schedule = (2 .^ Array(0:expilszm1)) |> MtlArray
+@metal threads = sz groups = size(out)[1] col_sum(out, a, sz, expilszm1, exp_stride_schedule)
+out
+@assert all([sum(Array(a)[:,j]) == Array(out)[j] for j ∈ size(a)[2]])
+
+
+# Problem 14: Matmul
+# Implement a kernel that multiplies square matrices a and b and stores the result in out.
+
+# Tip: The most efficient algorithm here will copy a block into shared memory
+# before computing each of the individual row-column dot products. This is easy
+# to do if the matrix fits in shared memory. Do that case first. Then update
+# your code to compute a partial dot-product and iteratively move the part you
+# copied into shared memory. You should be able to do the hard case in 6 global
+# reads per thread.
+"Multiples `n`×`n` square matrices `a` by `b`, storing the result in `out`."
+function matmul(out, a, b, n)
+        
+end
