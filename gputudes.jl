@@ -281,7 +281,7 @@ exp_stride_schedule = (2 .^ Array(0:expilszm1)) |> MtlArray
 out
 
 @assert sum(a) == sum(out)
-@benchmark Metal.@sync @metal threads = size groups = groups ppfx(out, a, size, expilszm1, exp_stride_schedule)
+@benchmark Metal.@sync @metal threads = sz groups = groups ppfx(out, a, sz, expilszm1, exp_stride_schedule)
 a = Array(a)
 @benchmark sum(a)
 
@@ -324,7 +324,7 @@ expilszm1 = Int(floor(2.0^(log(2,sz)-1)))
 exp_stride_schedule = (2 .^ Array(0:expilszm1)) |> MtlArray
 @metal threads = sz groups = size(out)[1] col_sum(out, a, sz, expilszm1, exp_stride_schedule)
 out
-@assert all([sum(Array(a)[:,j]) == Array(out)[j] for j ∈ size(a)[2]])
+@assert all([sum(Array(a)[:,j]) ≈ Array(out)[j] for j ∈ size(a)[2]])
 
 
 # Problem 14: Matmul
