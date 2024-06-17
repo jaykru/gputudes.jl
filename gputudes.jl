@@ -338,5 +338,21 @@ out
 # reads per thread.
 "Multiples `n`×`n` square matrices `a` by `b`, storing the result in `out`."
 function matmul(out, a, b, n)
-        
+    # one thread per position of out
+    j = threadgroup_position_in_grid_1d()
+    i = thread_position_in_threadgroup_1d()
+    sum = 0.0f0
+    for dp ∈ 1:n
+        sum += a[i,dp] * b[dp,j]
+    end
+    out[i,j] = sum
+    return
 end
+
+sz = 1024
+a = rand(Float32, sz, sz) |> MtlArray
+b = rand(Float32, sz, sz) |> MtlArray
+out = zeros(Float32, sz, sz) .- 1 |> MtlArray
+@metal threads = sz groups = sz matmul(out, a, b, sz)
+
+out
